@@ -1,0 +1,115 @@
+stages:
+  - build_engine
+  - test
+  - build_client
+  - package
+
+variables:
+  MAKEFLAGS: "-j$(nproc)"
+
+build_engine_release:
+  stage: build_engine
+  image: ubuntu:22.04
+  before_script:
+    - echo "Initializing build environment for engine..."
+    - apt-get update -qy
+    - apt-get install -y build-essential
+    - apt-get install -y libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev libfreeimage-dev
+    - echo "System dependencies installed."
+
+  script:
+    - echo "Building engine (RELEASE)..."
+    - cd engine
+    - make release
+    - echo "Engine RELEASE build completed."
+
+  artifacts:
+    name: "engine-release-$CI_COMMIT_SHA"
+    expire_in: 1 week
+    paths:
+      - engine/bin/Release/libengine.so
+      - engine/obj/Release/
+
+test_release:
+  stage: test
+  image: ubuntu:22.04
+  needs:
+    - job: build_engine_release
+      artifacts: true
+  before_script:
+    - echo "Initializing build environment for test..."
+    - apt-get update -qy
+    - apt-get install -y build-essential
+    - apt-get install -y libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev libfreeimage-dev
+    - apt-get install -y libgl-dev libglu-dev libxmu-dev libxi-dev
+    - echo "System dependencies installed."
+
+  script:
+    - echo "Building test (RELEASE)..."
+    - cd test
+    - make test
+    - echo "Test completed."
+
+build_client_release:
+  stage: build_client
+  image: ubuntu:22.04
+  needs:
+    - job: build_engine_release
+      artifacts: true
+    - job: test_release
+      artifacts: false
+  before_script:
+    - echo "Initializing build environment for client..."
+    - apt-get update -qy
+    - apt-get install -y build-essential
+    - apt-get install -y libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev libfreeimage-dev
+    - echo "System dependencies installed."
+
+  script:
+    - echo "Building client (RELEASE)..."
+    - cd client
+    - make release
+    - echo "Client RELEASE build completed."
+
+  artifacts:
+    name: "client-release-$CI_COMMIT_SHA"
+    expire_in: 1 week
+    paths:
+      - client/bin/Release/client
+      - client/obj/Release/
+
+package_all:
+  stage: package
+  image: ubuntu:22.04
+  needs:
+    - job: build_engine_release
+      artifacts: true
+    - job: test_release
+      artifacts: false
+    - job: build_client_release
+      artifacts: true
+  script:
+    - echo "Packaging all artifacts..."
+    - mkdir -p build_artifacts
+    - cp -r engine/bin/Release/libengine.so build_artifacts/
+    - cp -r client/bin/Release/client build_artifacts/
+
+    # --- Adding resources ---
+    - cp -r client/res build_artifacts/
+
+    # --- Creation of script run.sh ---
+    - touch build_artifacts/run.sh
+    - echo "#!/bin/bash" > build_artifacts/run.sh
+    - echo "export LD_LIBRARY_PATH=." >> build_artifacts/run.sh 
+    - echo "./client" >> build_artifacts/run.sh
+    - chmod +x build_artifacts/run.sh
+    # --------------------------------
+
+    - tar -czf Gruppo_10-build-$CI_COMMIT_SHA.tar.gz build_artifacts/
+    - echo "Package created (Gruppo_10-build-$CI_COMMIT_SHA.tar.gz)"
+    - ls -lh Gruppo_10-build-$CI_COMMIT_SHA.tar.gz
+  artifacts:
+    name: "final-package"
+    expire_in: 1 month
+    paths:
+      - Gruppo_10-build-$CI_COMMIT_SHA.tar.gz

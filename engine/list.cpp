@@ -80,7 +80,7 @@ namespace Eng
         glDisable(GL_TEXTURE_2D);
         glDepthMask(GL_FALSE);
         // glEnable(GL_BLEND);
-        //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glColor4f(0.65f, 0.65f, 0.65f, 0.1f);
 
         glm::mat4 viewMatrix = camera->getViewMatrix();
@@ -91,7 +91,7 @@ namespace Eng
 
             glm::mat4 modelViewShadow = viewMatrix * shadowMatrix * inst.nodeWorldMatrix;
 
-
+            glPushMatrix();
             glLoadMatrixf(glm::value_ptr(modelViewShadow));
             glTranslatef(0.0f, 0.01f, 0.0f); // Offset per evitare z-fighting
 
